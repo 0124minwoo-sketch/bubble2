@@ -1,0 +1,278 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8" />
+  <title>비눗방울 예술 (저장 기능 포함)</title>
+  <style>
+    body {
+      margin: 0;
+      overflow: hidden;
+      background-color: #ffffff;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      height: 100vh;
+    }
+    #canvas {
+      display: block;
+      flex-grow: 1;
+      cursor: pointer;
+    }
+    #saveBtn {
+      position: fixed;
+      bottom: 20px;
+      right: 20px;
+      background-color: #4CAF50;
+      color: white;
+      border: none;
+      border-radius: 8px;
+      padding: 12px 20px;
+      font-weight: bold;
+      font-size: 15px;
+      cursor: pointer;
+      box-shadow: 0 3px 8px rgba(0, 0, 0, 0.3);
+      transition: background-color 0.25s;
+    }
+    #saveBtn:hover {
+      background-color: #45a049;
+    }
+    #toast {
+      position: fixed;
+      bottom: 80px;
+      left: 50%;
+      transform: translateX(-50%);
+      background-color: rgba(0, 0, 0, 0.7);
+      color: white;
+      padding: 10px 20px;
+      border-radius: 6px;
+      font-size: 15px;
+      opacity: 0;
+      transition: opacity 0.5s ease;
+    }
+    #toast.show {
+      opacity: 1;
+    }
+  </style>
+</head>
+<body>
+  <canvas id="canvas"></canvas>
+  <button id="saveBtn">💾 저장</button>
+  <div id="toast">저장되었습니다!</div>
+
+  <script>
+    const canvas = document.getElementById("canvas");
+    const ctx = canvas.getContext("2d");
+    canvas.width = window.innerWidth;
+    canvas.height = window.innerHeight;
+    const saveBtn = document.getElementById("saveBtn");
+    const toast = document.getElementById("toast");
+
+    class Bubble {
+      constructor(width, height) {
+        this.width = width;
+        this.height = height;
+        this.x = Math.random() * (width - 200) + 100;
+        this.y = Math.random() * (height - 200) + 100;
+        this.radius = 25 + Math.random() * 35;
+        this.popped = false;
+        this.expandRadius = this.radius;
+        this.waveRadius = this.radius;
+        this.opacity = 1.0;
+
+        // 🎨 25% 확률로 흰색 비눗방울
+        if (Math.random() < 0.25) {
+          const shade = 220 + Math.random() * 35;
+          this.color = `rgb(${shade},${shade},${shade})`;
+        } else {
+          const r = 40 + Math.random() * 190;
+          const g = 40 + Math.random() * 190;
+          const b = 40 + Math.random() * 190;
+          this.color = `rgb(${r},${g},${b})`;
+        }
+
+        this.dx = (Math.random() - 0.5) * 4;
+        this.dy = (Math.random() - 0.5) * 4;
+      }
+
+      move() {
+        if (!this.popped) {
+          this.x += this.dx;
+          this.y += this.dy;
+          if (this.x - this.radius < 0 || this.x + this.radius > this.width)
+            this.dx *= -1;
+          if (this.y - this.radius < 0 || this.y + this.radius > this.height)
+            this.dy *= -1;
+        }
+      }
+
+      pop() {
+        this.popped = true;
+      }
+
+      updatePop() {
+        if (this.popped) {
+          this.expandRadius += 2.4;
+          this.waveRadius += 4.5;
+          if (this.expandRadius > this.radius * 6.5) {
+            this.opacity = 0;
+          }
+        }
+      }
+
+      draw(ctx) {
+        if (!this.popped) {
+          ctx.beginPath();
+          ctx.globalAlpha = 0.5;
+          ctx.fillStyle = this.color;
+          ctx.arc(this.x, this.y, this.radius, 0, Math.PI * 2);
+          ctx.fill();
+          ctx.globalAlpha = 1.0;
+          ctx.strokeStyle = "rgba(0,0,0,0.2)";
+          ctx.lineWidth = 2;
+          ctx.stroke();
+        } else {
+          const baseColor = this.color.replace("rgb", "rgba").replace(")", ",0.6)");
+          for (let i = 0; i < 2; i++) {
+            const r = this.waveRadius + i * 6;
+            const alpha = Math.max(0, 0.6 - (r - this.radius) * 0.01);
+            if (alpha > 0) {
+              ctx.beginPath();
+              ctx.globalAlpha = alpha;
+              ctx.strokeStyle = baseColor;
+              ctx.lineWidth = 2;
+              ctx.arc(this.x, this.y, r, 0, Math.PI * 2);
+              ctx.stroke();
+            }
+          }
+          for (let r = this.radius; r < this.expandRadius; r += 5) {
+            const alpha = Math.max(0, 0.4 - (r - this.radius) * 0.02);
+            if (alpha <= 0) break;
+            ctx.beginPath();
+            ctx.globalAlpha = alpha;
+            ctx.fillStyle = baseColor;
+            ctx.arc(this.x, this.y, r, 0, Math.PI * 2);
+            ctx.fill();
+          }
+          ctx.globalAlpha = 1.0;
+        }
+      }
+    }
+
+    let bubbles = [];
+    let popped = false;
+    let fadeStart = null;
+    let colorLayer = document.createElement("canvas");
+    colorLayer.width = canvas.width;
+    colorLayer.height = canvas.height;
+    let colorCtx = colorLayer.getContext("2d");
+
+    function resetScene() {
+      bubbles = [];
+      for (let i = 0; i < 25; i++) {
+        bubbles.push(new Bubble(canvas.width, canvas.height));
+      }
+      colorCtx.clearRect(0, 0, canvas.width, canvas.height);
+      popped = false;
+      fadeStart = null;
+    }
+
+    resetScene();
+
+    function fadeBackground() {
+      ctx.fillStyle = "rgba(255,255,255,0.14)";
+      ctx.fillRect(0, 0, canvas.width, canvas.height);
+    }
+
+    function animationLoop() {
+      fadeBackground();
+
+      if (!popped) {
+        bubbles.forEach((b) => {
+          b.move();
+          b.draw(ctx);
+        });
+      } else {
+        const elapsed = (performance.now() - fadeStart) / 1000;
+        bubbles.forEach((b) => {
+          b.updatePop();
+          b.draw(ctx);
+        });
+
+        // 🎨 색 퍼짐 효과
+        if (elapsed < 4.0) {
+          let colors = bubbles.map((b) => b.color);
+          for (let i = 0; i < 12; i++) {
+            const c = colors[Math.floor(Math.random() * colors.length)];
+            const r = 20 + Math.random() * 70;
+            const alpha = 0.1 + Math.random() * 0.2;
+            colorCtx.beginPath();
+            colorCtx.globalAlpha = alpha;
+            colorCtx.fillStyle = c;
+            colorCtx.arc(
+              Math.random() * canvas.width,
+              Math.random() * canvas.height,
+              r,
+              0,
+              Math.PI * 2
+            );
+            colorCtx.fill();
+          }
+        }
+        ctx.drawImage(colorLayer, 0, 0);
+      }
+
+      requestAnimationFrame(animationLoop);
+    }
+
+    /* ✅ 클릭/터치 시 폭발 */
+    function handlePopEvent() {
+      if (!popped) {
+        popped = true;
+        fadeStart = performance.now();
+        bubbles.forEach((b) => b.pop());
+      } else {
+        resetScene();
+      }
+    }
+
+    canvas.addEventListener("click", handlePopEvent);
+    canvas.addEventListener("touchstart", (e) => {
+      e.preventDefault();
+      handlePopEvent();
+    });
+
+    /* ✅ 저장 기능 추가 */
+    function saveCanvasImage() {
+      const now = new Date();
+      const timeStr =
+        now.getFullYear() +
+        "-" +
+        String(now.getMonth() + 1).padStart(2, "0") +
+        "-" +
+        String(now.getDate()).padStart(2, "0") +
+        "_" +
+        String(now.getHours()).padStart(2, "0") +
+        String(now.getMinutes()).padStart(2, "0") +
+        String(now.getSeconds()).padStart(2, "0");
+
+      const filename = `bubble_art_${timeStr}.png`;
+
+      const link = document.createElement("a");
+      link.download = filename;
+      link.href = canvas.toDataURL("image/png");
+      link.click();
+
+      showToast();
+    }
+
+    function showToast() {
+      toast.classList.add("show");
+      setTimeout(() => toast.classList.remove("show"), 2000);
+    }
+
+    saveBtn.addEventListener("click", saveCanvasImage);
+
+    requestAnimationFrame(animationLoop);
+  </script>
+</body>
+</html>
