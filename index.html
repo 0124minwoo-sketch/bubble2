@@ -22,8 +22,8 @@
       font-family: sans-serif;
       font-size: 14px;
       color: rgba(80, 80, 80, 0.7);
-      user-select: none;
       text-align: center;
+      user-select: none;
     }
     .save-btn {
       position: absolute;
@@ -63,12 +63,12 @@
 </head>
 <body>
   <canvas id="canvas"></canvas>
-  <div class="hint">🫧 화면을 터치하거나 클릭해 보세요 💫</div>
+  <div class="hint">🫧 첫 화면은 비눗방울이 떠요.<br>첫 번째 톡! 하면 터지고, 두 번째 톡! 하면 새 장면으로 돌아옵니다 💫</div>
   <div class="save-btn" id="saveBtn">💾 저장</div>
   <div class="toast" id="toast">📸 저장되었습니다!</div>
 
   <script>
-    // --------------------- 기본 설정 -----------------------
+    // ---------------- 기본 세팅 ----------------
     const canvas = document.getElementById("canvas");
     const ctx = canvas.getContext("2d");
     let width = window.innerWidth;
@@ -83,82 +83,89 @@
       canvas.height = height;
     });
 
-    // --------------------- 유틸 함수 -----------------------
-    function rand(min, max) { return Math.random() * (max - min) + min; }
+    function rand(min, max) {
+      return Math.random() * (max - min) + min;
+    }
+
     function randomColor() {
       const base = [rand(100, 220), rand(100, 220), rand(100, 220)];
       return base.map(v => Math.round(v * 0.5 + 255 * 0.5));
     }
 
-    // --------------------- 비눗방울 클래스 -----------------
+    // ---------------- 비눗방울 클래스 ----------------
     class Bubble {
       constructor() {
-        this.whiteBubble = Math.random() < 0.25;
+        this.white = Math.random() < 0.25;
         this.x = rand(100, width - 100);
         this.y = rand(100, height - 100);
-        this.radius = this.whiteBubble ? rand(10, 30) : rand(25, 60);
-        this.color = this.whiteBubble ? [255, 255, 255] : randomColor();
-        this.dx = this.whiteBubble ? rand(-1, 1) : rand(-2, 2);
-        this.dy = this.whiteBubble ? rand(-1, 1) : rand(-2, 2);
+        this.r = this.white ? rand(10, 30) : rand(25, 60);
+        this.color = this.white ? [255, 255, 255] : randomColor();
+        this.dx = this.white ? rand(-1, 1) : rand(-2, 2);
+        this.dy = this.white ? rand(-1, 1) : rand(-2, 2);
         this.popped = false;
-        this.expandRadius = this.radius;
-        this.waveRadius = this.radius;
+        this.expandR = this.r;
+        this.waveR = this.r;
       }
+
       move() {
         if (!this.popped) {
           this.x += this.dx;
           this.y += this.dy;
-          if (this.x - this.radius < 0 || this.x + this.radius > width) this.dx *= -1;
-          if (this.y - this.radius < 0 || this.y + this.radius > height) this.dy *= -1;
+          if (this.x - this.r < 0 || this.x + this.r > width) this.dx *= -1;
+          if (this.y - this.r < 0 || this.y + this.r > height) this.dy *= -1;
         }
       }
+
       pop() { this.popped = true; }
+
       updatePop() {
         if (this.popped) {
-          this.expandRadius += 2.4;
-          this.waveRadius += 4.5;
+          this.expandR += 2.4;
+          this.waveR += 4.5;
         }
       }
+
       draw(ctx) {
         if (!this.popped) {
           ctx.save();
-          ctx.globalAlpha = this.whiteBubble ? 0.25 : 0.3;
+          ctx.globalAlpha = this.white ? 0.25 : 0.3;
           ctx.fillStyle = `rgb(${this.color.join(",")})`;
           ctx.beginPath();
-          ctx.arc(this.x, this.y, this.radius, 0, Math.PI * 2);
+          ctx.arc(this.x, this.y, this.r, 0, Math.PI * 2);
           ctx.fill();
-          ctx.globalAlpha = this.whiteBubble ? 0.4 : 0.5;
+
+          ctx.globalAlpha = this.white ? 0.4 : 0.5;
           ctx.lineWidth = 2;
-          const edgeColor = this.whiteBubble
+          const edge = this.white
             ? "rgba(230,230,230,0.7)"
-            : `rgba(${Math.max(0,this.color[0]-50)},${Math.max(0,this.color[1]-50)},${Math.max(0,this.color[2]-50)},0.5)`;
-          ctx.strokeStyle = edgeColor;
+            : `rgba(${Math.max(0, this.color[0] - 50)},${Math.max(0, this.color[1] - 50)},${Math.max(0, this.color[2] - 50)},0.5)`;
+          ctx.strokeStyle = edge;
           ctx.stroke();
           ctx.restore();
         } else {
-          const base = this.color.map(c => Math.min(255,c * 0.85));
-          for (let i=0;i<2;i++){
-            const r = this.waveRadius + i * 6;
-            const alpha = Math.max(0,0.35-(r-this.radius)*0.002);
-            if(alpha>0){
+          const base = this.color.map(c => Math.min(255, c * 0.85));
+          for (let i = 0; i < 2; i++) {
+            const r = this.waveR + i * 6;
+            const a = Math.max(0, 0.35 - (r - this.r) * 0.002);
+            if (a > 0) {
               ctx.save();
-              ctx.strokeStyle=`rgba(${base.join(",")},${alpha})`;
-              ctx.lineWidth=2;
+              ctx.strokeStyle = `rgba(${base.join(",")},${a})`;
+              ctx.lineWidth = 2;
               ctx.beginPath();
-              ctx.arc(this.x,this.y,r,0,Math.PI*2);
+              ctx.arc(this.x, this.y, r, 0, Math.PI * 2);
               ctx.stroke();
               ctx.restore();
             }
           }
-          for(let r=this.radius;r<this.expandRadius;r+=5){
-            const alpha=Math.max(0,0.25-(r-this.radius)*0.002);
-            if(alpha<=0)break;
-            const c=base.map(v=>Math.min(255,v+(r-this.radius)/6));
+          for (let r = this.r; r < this.expandR; r += 5) {
+            const a = Math.max(0, 0.25 - (r - this.r) * 0.002);
+            if (a <= 0) break;
+            const c = base.map(v => Math.min(255, v + (r - this.r) / 6));
             ctx.save();
-            ctx.globalAlpha=alpha;
-            ctx.fillStyle=`rgb(${c.join(",")})`;
+            ctx.globalAlpha = a;
+            ctx.fillStyle = `rgb(${c.join(",")})`;
             ctx.beginPath();
-            ctx.arc(this.x,this.y,r,0,Math.PI*2);
+            ctx.arc(this.x, this.y, r, 0, Math.PI * 2);
             ctx.fill();
             ctx.restore();
           }
@@ -166,15 +173,17 @@
       }
     }
 
-    // --------------------- 상태 -----------------------
+    // ---------------- 상태 ----------------
     let bubbles = [];
     let popped = false;
     let fadeStart = null;
+    let stage = 0; // 0 = 떠있는 상태, 1 = 터진 상태
     const colorLayer = document.createElement("canvas");
     const cctx = colorLayer.getContext("2d");
     colorLayer.width = width;
     colorLayer.height = height;
 
+    // 새 장면 생성
     function createScene() {
       bubbles = [];
       for (let i = 0; i < 25; i++) bubbles.push(new Bubble());
@@ -182,9 +191,10 @@
       fadeStart = null;
       cctx.clearRect(0, 0, width, height);
     }
+
     createScene();
 
-    // --------------------- 메인 루프 -----------------------
+    // ---------------- 메인 루프 ----------------
     function animate() {
       ctx.fillStyle = "rgba(255,255,255,0.13)";
       ctx.fillRect(0, 0, width, height);
@@ -192,51 +202,54 @@
       if (!popped) {
         bubbles.forEach(b => { b.move(); b.draw(ctx); });
       } else {
-        const elapsed = (performance.now() - fadeStart) / 1000;
         bubbles.forEach(b => { b.updatePop(); b.draw(ctx); });
-        if (elapsed < 4.0) {
-          for(let i=0;i<8;i++){
-            const c=bubbles[Math.floor(Math.random()*bubbles.length)].color;
-            const r=rand(20,80);
-            const alpha=rand(0.05,0.15);
-            cctx.fillStyle=`rgba(${c[0]},${c[1]},${c[2]},${alpha})`;
+        const elapsed = (performance.now() - fadeStart) / 1000;
+        if (elapsed < 4) {
+          for (let i = 0; i < 8; i++) {
+            const c = bubbles[Math.floor(Math.random() * bubbles.length)].color;
+            const r = rand(20, 80);
+            const a = rand(0.05, 0.15);
+            cctx.fillStyle = `rgba(${c[0]},${c[1]},${c[2]},${a})`;
             cctx.beginPath();
-            cctx.arc(rand(0,width),rand(0,height),r,0,Math.PI*2);
+            cctx.arc(rand(0, width), rand(0, height), r, 0, Math.PI * 2);
             cctx.fill();
           }
         }
-        ctx.drawImage(colorLayer,0,0);
+        ctx.drawImage(colorLayer, 0, 0);
       }
+
       requestAnimationFrame(animate);
     }
-    requestAnimationFrame(animate);
+    animate();
 
-    // --------------------- 인터랙션 -----------------------
-    function handleInteraction() {
-      if (!popped) {
+    // ---------------- 터치/클릭 로직 ----------------
+    function handleTap() {
+      if (stage === 0) {
+        // 첫 클릭 -> 터뜨리기
         popped = true;
         fadeStart = performance.now();
         bubbles.forEach(b => b.pop());
+        stage = 1;
       } else {
-        // 두 번째 터치/클릭 → 다시 초기화
+        // 두 번째 클릭 -> 새 장면으로 복귀
         createScene();
+        stage = 0;
       }
     }
-    canvas.addEventListener("click", handleInteraction);
-    canvas.addEventListener("touchstart", handleInteraction, { passive: true });
 
-    // --------------------- 저장 기능 -----------------------
+    canvas.addEventListener("pointerdown", handleTap);
+
+    // ---------------- 저장 기능 ----------------
     const saveBtn = document.getElementById("saveBtn");
     const toast = document.getElementById("toast");
-
     saveBtn.addEventListener("click", () => {
       const now = new Date();
       const yyyy = now.getFullYear();
-      const mm = String(now.getMonth()+1).padStart(2,"0");
-      const dd = String(now.getDate()).padStart(2,"0");
-      const hh = String(now.getHours()).padStart(2,"0");
-      const mi = String(now.getMinutes()).padStart(2,"0");
-      const ss = String(now.getSeconds()).padStart(2,"0");
+      const mm = String(now.getMonth() + 1).padStart(2, "0");
+      const dd = String(now.getDate()).padStart(2, "0");
+      const hh = String(now.getHours()).padStart(2, "0");
+      const mi = String(now.getMinutes()).padStart(2, "0");
+      const ss = String(now.getSeconds()).padStart(2, "0");
       const filename = `bubble_art_${yyyy}-${mm}-${dd}_${hh}-${mi}-${ss}.png`;
 
       const link = document.createElement("a");
@@ -246,7 +259,7 @@
 
       toast.classList.add("show");
       clearTimeout(toast.hideTimer);
-      toast.hideTimer = setTimeout(()=>{ toast.classList.remove("show"); },2000);
+      toast.hideTimer = setTimeout(() => toast.classList.remove("show"), 2000);
     });
   </script>
 </body>
