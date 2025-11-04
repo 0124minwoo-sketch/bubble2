@@ -10,34 +10,39 @@
       overflow: hidden;
       background: white;
       touch-action: none;
+      user-select: none;
     }
     canvas {
       display: block;
     }
     .hint {
       position: absolute;
-      bottom: 20px;
+      bottom: 25px;
       left: 50%;
       transform: translateX(-50%);
       font-family: sans-serif;
       font-size: 14px;
       color: rgba(80, 80, 80, 0.7);
       text-align: center;
-      user-select: none;
     }
-    .save-btn {
+    .btn-container {
       position: absolute;
-      right: 20px;
       bottom: 20px;
+      right: 20px;
+      display: flex;
+      gap: 8px;
+    }
+    .btn {
       padding: 8px 14px;
       background: rgba(240, 240, 240, 0.9);
       border-radius: 8px;
       font-family: sans-serif;
       border: 1px solid #ccc;
+      font-size: 13px;
       cursor: pointer;
       transition: 0.2s all;
     }
-    .save-btn:hover {
+    .btn:hover {
       background: rgba(220, 220, 220, 1);
     }
     .toast {
@@ -63,12 +68,16 @@
 </head>
 <body>
   <canvas id="canvas"></canvas>
-  <div class="hint">🫧 첫 화면은 비눗방울이 떠요.<br>첫 번째 톡! 하면 터지고, 두 번째 톡! 하면 새 장면으로 돌아옵니다 💫</div>
-  <div class="save-btn" id="saveBtn">💾 저장</div>
-  <div class="toast" id="toast">📸 저장되었습니다!</div>
+  <div class="hint">🫧 첫 번째 ‘톡!’은 터뜨리기, 두 번째 ‘톡!’은 새 장면!<br>💾 저장 혹은 📤 공유도 가능해요!</div>
+
+  <div class="btn-container">
+    <button class="btn" id="saveBtn">💾 저장</button>
+    <button class="btn" id="shareBtn">📤 공유</button>
+  </div>
+  <div class="toast" id="toast">📸 완료되었습니다!</div>
 
   <script>
-    // ---------------- 기본 세팅 ----------------
+    // ---------------- 기본 설정보일 ----------------
     const canvas = document.getElementById("canvas");
     const ctx = canvas.getContext("2d");
     let width = window.innerWidth;
@@ -83,10 +92,7 @@
       canvas.height = height;
     });
 
-    function rand(min, max) {
-      return Math.random() * (max - min) + min;
-    }
-
+    function rand(min, max) { return Math.random() * (max - min) + min; }
     function randomColor() {
       const base = [rand(100, 220), rand(100, 220), rand(100, 220)];
       return base.map(v => Math.round(v * 0.5 + 255 * 0.5));
@@ -106,7 +112,6 @@
         this.expandR = this.r;
         this.waveR = this.r;
       }
-
       move() {
         if (!this.popped) {
           this.x += this.dx;
@@ -115,16 +120,13 @@
           if (this.y - this.r < 0 || this.y + this.r > height) this.dy *= -1;
         }
       }
-
       pop() { this.popped = true; }
-
       updatePop() {
         if (this.popped) {
           this.expandR += 2.4;
           this.waveR += 4.5;
         }
       }
-
       draw(ctx) {
         if (!this.popped) {
           ctx.save();
@@ -133,12 +135,11 @@
           ctx.beginPath();
           ctx.arc(this.x, this.y, this.r, 0, Math.PI * 2);
           ctx.fill();
-
           ctx.globalAlpha = this.white ? 0.4 : 0.5;
           ctx.lineWidth = 2;
           const edge = this.white
             ? "rgba(230,230,230,0.7)"
-            : `rgba(${Math.max(0, this.color[0] - 50)},${Math.max(0, this.color[1] - 50)},${Math.max(0, this.color[2] - 50)},0.5)`;
+            : `rgba(${Math.max(0, this.color[0]-50)},${Math.max(0, this.color[1]-50)},${Math.max(0, this.color[2]-50)},0.5)`;
           ctx.strokeStyle = edge;
           ctx.stroke();
           ctx.restore();
@@ -173,17 +174,17 @@
       }
     }
 
-    // ---------------- 상태 ----------------
+    // ---------------- 상태 변수 ----------------
     let bubbles = [];
     let popped = false;
     let fadeStart = null;
-    let stage = 0; // 0 = 떠있는 상태, 1 = 터진 상태
+    let stage = 0; // 0=비눗방울 떠 있는 장면, 1=터진 상태
     const colorLayer = document.createElement("canvas");
     const cctx = colorLayer.getContext("2d");
     colorLayer.width = width;
     colorLayer.height = height;
 
-    // 새 장면 생성
+    // 장면 새로 만들기
     function createScene() {
       bubbles = [];
       for (let i = 0; i < 25; i++) bubbles.push(new Bubble());
@@ -204,7 +205,7 @@
       } else {
         bubbles.forEach(b => { b.updatePop(); b.draw(ctx); });
         const elapsed = (performance.now() - fadeStart) / 1000;
-        if (elapsed < 4) {
+        if (elapsed < 4.0) {
           for (let i = 0; i < 8; i++) {
             const c = bubbles[Math.floor(Math.random() * bubbles.length)].color;
             const r = rand(20, 80);
@@ -222,16 +223,16 @@
     }
     animate();
 
-    // ---------------- 터치/클릭 로직 ----------------
+    // ---------------- 상호작용 ----------------
     function handleTap() {
       if (stage === 0) {
-        // 첫 클릭 -> 터뜨리기
+        // 톡! → 터지기
         popped = true;
         fadeStart = performance.now();
         bubbles.forEach(b => b.pop());
         stage = 1;
       } else {
-        // 두 번째 클릭 -> 새 장면으로 복귀
+        // 톡! → 새 장면
         createScene();
         stage = 0;
       }
@@ -239,9 +240,19 @@
 
     canvas.addEventListener("pointerdown", handleTap);
 
-    // ---------------- 저장 기능 ----------------
+    // ---------------- 저장 + 공유 버튼 ----------------
     const saveBtn = document.getElementById("saveBtn");
+    const shareBtn = document.getElementById("shareBtn");
     const toast = document.getElementById("toast");
+
+    function showToast(msg = "📸 완료되었습니다!") {
+      toast.textContent = msg;
+      toast.classList.add("show");
+      clearTimeout(toast.hideTimer);
+      toast.hideTimer = setTimeout(() => toast.classList.remove("show"), 2000);
+    }
+
+    // 저장 버튼
     saveBtn.addEventListener("click", () => {
       const now = new Date();
       const yyyy = now.getFullYear();
@@ -250,16 +261,35 @@
       const hh = String(now.getHours()).padStart(2, "0");
       const mi = String(now.getMinutes()).padStart(2, "0");
       const ss = String(now.getSeconds()).padStart(2, "0");
-      const filename = `bubble_art_${yyyy}-${mm}-${dd}_${hh}-${mi}-${ss}.png`;
+      const file = `bubble_art_${yyyy}-${mm}-${dd}_${hh}-${mi}-${ss}.png`;
 
       const link = document.createElement("a");
-      link.download = filename;
+      link.download = file;
       link.href = canvas.toDataURL("image/png");
       link.click();
+      showToast("💾 그림이 저장되었습니다!");
+    });
 
-      toast.classList.add("show");
-      clearTimeout(toast.hideTimer);
-      toast.hideTimer = setTimeout(() => toast.classList.remove("show"), 2000);
+    // 공유 버튼 (Web Share API)
+    shareBtn.addEventListener("click", async () => {
+      const dataURL = canvas.toDataURL("image/png");
+      const blob = await (await fetch(dataURL)).blob();
+      const file = new File([blob], "bubble_art.png", { type: "image/png" });
+
+      if (navigator.canShare && navigator.canShare({ files: [file] })) {
+        try {
+          await navigator.share({
+            files: [file],
+            title: "비눗방울 예술 작품",
+            text: "🫧 내가 만든 비눗방울 예술 작품이에요!",
+          });
+          showToast("📤 공유가 완료되었습니다!");
+        } catch (error) {
+          showToast("❗공유가 취소되었어요");
+        }
+      } else {
+        showToast("⚠️ 브라우저가 공유 기능을 지원하지 않습니다");
+      }
     });
   </script>
 </body>
