@@ -63,12 +63,15 @@
 </head>
 <body>
   <canvas id="canvas"></canvas>
-  <div class="hint">🫧 터치하거나 클릭하면 비눗방울이 터져요! 다시 누르면 처음화면으로~<br>💾 저장 혹은 📤 공유도 가능해요!</div>
+  <div class="hint">
+    🫧 모바일에서는 2초 안에 퍼짐 효과가 끝나요.<br>
+    💾 저장을 누르면 현재 시각이 파일명에 포함됩니다.
+  </div>
   <div class="btn-box">
     <button class="btn" id="saveBtn">💾 저장</button>
     <button class="btn" id="shareBtn">📤 공유</button>
   </div>
-  <div class="toast" id="toast">📸 완료되었습니다!</div>
+  <div class="toast" id="toast">📸 저장되었습니다!</div>
 
 <script>
   const canvas = document.getElementById("canvas");
@@ -79,7 +82,7 @@
   canvas.height = height;
 
   const isMobile = /Mobi|Android|iPhone|iPad/i.test(navigator.userAgent);
-  const duration = isMobile ? 2.0 : 4.0; // 💡 모바일은 2초, PC는 4초
+  const duration = isMobile ? 2.0 : 4.0;
 
   window.addEventListener("resize", () => {
     width = window.innerWidth;
@@ -98,7 +101,6 @@
     return base.map(v => Math.round(v * 0.5 + 255 * 0.5));
   }
 
-  // 🫧 비눗방울 클래스
   class Bubble {
     constructor() {
       this.white = Math.random() < 0.2;
@@ -127,7 +129,6 @@
 
     updatePop() {
       if (this.popped) {
-        // 💨 모바일은 빠르게 확산하여 2초 내 종료
         this.expandR += isMobile ? 5.0 : 2.5;
         this.waveR += isMobile ? 10.0 : 5.0;
       }
@@ -141,7 +142,6 @@
         ctx.beginPath();
         ctx.arc(this.x, this.y, this.r, 0, Math.PI * 2);
         ctx.fill();
-
         const edge = this.white ? [230,230,230] : this.color.map(v => Math.max(0, v - 60));
         ctx.globalAlpha = this.white ? 0.5 : 0.65;
         ctx.strokeStyle = `rgba(${edge.join(",")},0.6)`;
@@ -179,7 +179,6 @@
     }
   }
 
-  // 🌈 상태 관리
   let bubbles = [];
   let popped = false;
   let fadeStart = null;
@@ -197,6 +196,7 @@
     fadeStart = null;
     cctx.clearRect(0, 0, width, height);
   }
+
   createScene();
 
   function animate() {
@@ -208,7 +208,6 @@
     } else {
       bubbles.forEach(b => { b.updatePop(); b.draw(ctx); });
       const elapsed = (performance.now() - fadeStart) / 1000;
-      // 🕒 모바일은 2초까지만 새 비눗방울 생성
       if (elapsed < duration) {
         const colors = bubbles.map(b => b.color);
         const repeat = isMobile ? 5 : 10;
@@ -221,7 +220,7 @@
           cctx.arc(rand(0, width), rand(0, height), r, 0, Math.PI * 2);
           cctx.fill();
         }
-      } 
+      }
       ctx.drawImage(colorLayer, 0, 0);
     }
 
@@ -229,7 +228,6 @@
   }
   animate();
 
-  // 💡 터치 / 클릭 시 조작
   function handleTap() {
     if (stage === 0) {
       popped = true;
@@ -237,13 +235,13 @@
       bubbles.forEach(b => b.pop());
       stage = 1;
     } else {
-      createScene();  // ⏸ 이제 자동 리셋 대신, 두 번째 터치로 수동 리셋
+      createScene();
       stage = 0;
     }
   }
   canvas.addEventListener("pointerdown", handleTap);
 
-  // 💾 저장 / 📤 공유
+  // 💾 저장 기능 (파일명에 날짜 포함)
   const saveBtn = document.getElementById("saveBtn");
   const shareBtn = document.getElementById("shareBtn");
   const toast = document.getElementById("toast");
@@ -256,14 +254,25 @@
   }
 
   saveBtn.addEventListener("click", () => {
+    // 📅 현재 시각 기반 파일명 생성
+    const now = new Date();
+    const yyyy = now.getFullYear();
+    const mm = String(now.getMonth() + 1).padStart(2, "0");
+    const dd = String(now.getDate()).padStart(2, "0");
+    const hh = String(now.getHours()).padStart(2, "0");
+    const mi = String(now.getMinutes()).padStart(2, "0");
+    const ss = String(now.getSeconds()).padStart(2, "0");
+    const filename = `bubble_art_${yyyy}-${mm}-${dd}_${hh}-${mi}-${ss}.png`;
+
     const dataURL = canvas.toDataURL("image/png");
     const link = document.createElement("a");
-    link.download = "bubble_art.png";
+    link.download = filename;
     link.href = dataURL;
     link.click();
-    showToast("💾 그림이 저장되었습니다!");
+    showToast(`💾 ${filename}로 저장되었습니다!`);
   });
 
+  // 📤 공유 기능
   shareBtn.addEventListener("click", async () => {
     const dataURL = canvas.toDataURL("image/png");
     const blob = await (await fetch(dataURL)).blob();
