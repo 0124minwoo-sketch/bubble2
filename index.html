@@ -2,8 +2,8 @@
 <html lang="ko">
 <head>
 <meta charset="UTF-8" />
-<meta name="viewport" content="width=device-width, initial-scale=1.0" />
-<title>연한 색감의 비눗방울 예술</title>
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no" />
+<title>연한 색감의 비눗방울 예술 (공유 기능 복원)</title>
 <style>
   body {
     margin: 0;
@@ -62,237 +62,221 @@
 </style>
 </head>
 <body>
-  <canvas id="canvas"></canvas>
-  <div class="hint">
-    🫧 모바일에서는 2초 안에 퍼짐 효과가 끝나요.<br>
-    💾 저장을 누르면 현재 시각이 파일명에 포함됩니다.
-  </div>
-  <div class="btn-box">
-    <button class="btn" id="saveBtn">💾 저장</button>
-    <button class="btn" id="shareBtn">📤 공유</button>
-  </div>
-  <div class="toast" id="toast">📸 저장되었습니다!</div>
+<canvas id="canvas"></canvas>
+
+<div class="hint">🫧 첫 터치 → 초기화 준비<br>두 번째 터치부터 비눗방울이 터집니다 💫</div>
+
+<div class="btn-box">
+  <button class="btn" id="saveBtn">💾 저장</button>
+  <button class="btn" id="shareBtn">📤 공유</button>
+</div>
+
+<div class="toast" id="toast">📸 완료되었습니다!</div>
 
 <script>
-  const canvas = document.getElementById("canvas");
-  const ctx = canvas.getContext("2d");
-  let width = window.innerWidth;
-  let height = window.innerHeight;
-  canvas.width = width;
-  canvas.height = height;
+const canvas = document.getElementById("canvas");
+const ctx = canvas.getContext("2d", { willReadFrequently: true });
+let width = window.innerWidth;
+let height = window.innerHeight;
+canvas.width = width;
+canvas.height = height;
 
-  const isMobile = /Mobi|Android|iPhone|iPad/i.test(navigator.userAgent);
-  const duration = isMobile ? 2.0 : 4.0;
+const isMobile = /Mobi|Android|iPhone|iPad/i.test(navigator.userAgent);
+const duration = isMobile ? 2.0 : 4.0;
+let initialized = false;
+let stage = 0;
 
-  window.addEventListener("resize", () => {
-    width = window.innerWidth;
-    height = window.innerHeight;
-    canvas.width = width;
-    canvas.height = height;
-    createScene();
-  });
+function rand(min,max){return Math.random()*(max-min)+min;}
+function randomColor(){
+  const base=[rand(100,200),rand(120,220),rand(120,240)];
+  return base.map(v=>Math.round(v*0.5+255*0.5));
+}
 
-  function rand(min, max) {
-    return Math.random() * (max - min) + min;
+// 🫧 비눗방울 클래스
+class Bubble {
+  constructor(){
+    this.white = Math.random()<0.2;
+    this.x = rand(50,width-50);
+    this.y = rand(50,height-50);
+    const scale = isMobile ? 0.65 : 1.0;
+    this.r = this.white ? rand(10*scale,25*scale) : rand(25*scale,55*scale);
+    this.color = this.white ? [255,255,255]:randomColor();
+    this.dx=rand(-1.5,1.5);
+    this.dy=rand(-1.5,1.5);
+    this.popped=false;
+    this.expandR=this.r;
+    this.waveR=this.r;
   }
-
-  function randomColor() {
-    const base = [rand(100, 200), rand(120, 220), rand(120, 240)];
-    return base.map(v => Math.round(v * 0.5 + 255 * 0.5));
+  move(){
+    if(!this.popped){
+      this.x+=this.dx; this.y+=this.dy;
+      if(this.x-this.r<0||this.x+this.r>width) this.dx*=-1;
+      if(this.y-this.r<0||this.y+this.r>height) this.dy*=-1;
+    }
   }
-
-  class Bubble {
-    constructor() {
-      this.white = Math.random() < 0.2;
-      this.x = rand(50, width - 50);
-      this.y = rand(50, height - 50);
-      const scale = isMobile ? 0.65 : 1.0;
-      this.r = this.white ? rand(10*scale, 25*scale) : rand(25*scale, 55*scale);
-      this.color = this.white ? [255,255,255] : randomColor();
-      this.dx = rand(-1.5, 1.5);
-      this.dy = rand(-1.5, 1.5);
-      this.popped = false;
-      this.expandR = this.r;
-      this.waveR = this.r;
+  pop(){this.popped=true;}
+  updatePop(){
+    if(this.popped){
+      this.expandR += isMobile ? 5.0 : 2.5;
+      this.waveR += isMobile ? 10.0 : 5.0;
     }
-
-    move() {
-      if (!this.popped) {
-        this.x += this.dx;
-        this.y += this.dy;
-        if (this.x - this.r < 0 || this.x + this.r > width) this.dx *= -1;
-        if (this.y - this.r < 0 || this.y + this.r > height) this.dy *= -1;
-      }
-    }
-
-    pop() { this.popped = true; }
-
-    updatePop() {
-      if (this.popped) {
-        this.expandR += isMobile ? 5.0 : 2.5;
-        this.waveR += isMobile ? 10.0 : 5.0;
-      }
-    }
-
-    draw(ctx) {
-      if (!this.popped) {
-        ctx.save();
-        ctx.globalAlpha = this.white ? 0.3 : 0.45;
-        ctx.fillStyle = `rgb(${this.color.join(",")})`;
-        ctx.beginPath();
-        ctx.arc(this.x, this.y, this.r, 0, Math.PI * 2);
-        ctx.fill();
-        const edge = this.white ? [230,230,230] : this.color.map(v => Math.max(0, v - 60));
-        ctx.globalAlpha = this.white ? 0.5 : 0.65;
-        ctx.strokeStyle = `rgba(${edge.join(",")},0.6)`;
-        ctx.lineWidth = 2;
-        ctx.stroke();
-        ctx.restore();
-      } else {
-        const base = this.color.map(c => Math.min(255, c * 0.85));
-        for (let i = 0; i < 2; i++) {
-          const r = this.waveR + i * 6;
-          const alpha = Math.max(0, 0.3 - (r - this.r) * 0.004);
-          if (alpha > 0) {
-            ctx.save();
-            ctx.strokeStyle = `rgba(${base.join(",")},${alpha})`;
-            ctx.lineWidth = 2;
-            ctx.beginPath();
-            ctx.arc(this.x, this.y, r, 0, Math.PI * 2);
-            ctx.stroke();
-            ctx.restore();
-          }
-        }
-        for (let r = this.r; r < this.expandR; r += 5) {
-          const alpha = Math.max(0, 0.18 - (r - this.r) * 0.003);
-          if (alpha <= 0) break;
-          const c = base.map(v => Math.min(255, v + (r - this.r) / 4));
+  }
+  draw(ctx){
+    if(!this.popped){
+      ctx.save();
+      ctx.globalAlpha=this.white?0.3:0.45;
+      ctx.fillStyle=`rgb(${this.color.join(",")})`;
+      ctx.beginPath(); ctx.arc(this.x,this.y,this.r,0,Math.PI*2); ctx.fill();
+      const edge=this.white?[230,230,230]:this.color.map(v=>Math.max(0,v-60));
+      ctx.globalAlpha=this.white?0.5:0.65;
+      ctx.strokeStyle=`rgba(${edge.join(",")},0.6)`;
+      ctx.lineWidth=2; ctx.stroke(); ctx.restore();
+    }else{
+      const base=this.color.map(c=>Math.min(255,c*0.85));
+      for(let i=0;i<2;i++){
+        const r=this.waveR+i*6;
+        const alpha=Math.max(0,0.3-(r-this.r)*0.004);
+        if(alpha>0){
           ctx.save();
-          ctx.globalAlpha = alpha;
-          ctx.fillStyle = `rgb(${c.join(",")})`;
+          ctx.strokeStyle=`rgba(${base.join(",")},${alpha})`;
+          ctx.lineWidth=2;
           ctx.beginPath();
-          ctx.arc(this.x, this.y, r, 0, Math.PI * 2);
-          ctx.fill();
+          ctx.arc(this.x,this.y,r,0,Math.PI*2);
+          ctx.stroke();
           ctx.restore();
         }
       }
-    }
-  }
-
-  let bubbles = [];
-  let popped = false;
-  let fadeStart = null;
-  let stage = 0;
-  const colorLayer = document.createElement("canvas");
-  const cctx = colorLayer.getContext("2d");
-  colorLayer.width = width;
-  colorLayer.height = height;
-
-  function createScene() {
-    bubbles = [];
-    const count = isMobile ? 15 : 25;
-    for (let i = 0; i < count; i++) bubbles.push(new Bubble());
-    popped = false;
-    fadeStart = null;
-    cctx.clearRect(0, 0, width, height);
-  }
-
-  createScene();
-
-  function animate() {
-    ctx.fillStyle = "rgba(255,255,255,0.08)";
-    ctx.fillRect(0, 0, width, height);
-
-    if (!popped) {
-      bubbles.forEach(b => { b.move(); b.draw(ctx); });
-    } else {
-      bubbles.forEach(b => { b.updatePop(); b.draw(ctx); });
-      const elapsed = (performance.now() - fadeStart) / 1000;
-      if (elapsed < duration) {
-        const colors = bubbles.map(b => b.color);
-        const repeat = isMobile ? 5 : 10;
-        for (let i = 0; i < repeat; i++) {
-          const c = colors[Math.floor(Math.random() * colors.length)];
-          const r = rand(15, 70);
-          const a = rand(0.06, 0.13);
-          cctx.fillStyle = `rgba(${c[0]},${c[1]},${c[2]},${a})`;
-          cctx.beginPath();
-          cctx.arc(rand(0, width), rand(0, height), r, 0, Math.PI * 2);
-          cctx.fill();
-        }
+      for(let r=this.r;r<this.expandR;r+=5){
+        const alpha=Math.max(0,0.18-(r-this.r)*0.003);
+        if(alpha<=0)break;
+        const c=base.map(v=>Math.min(255,v+(r-this.r)/4));
+        ctx.save();
+        ctx.globalAlpha=alpha;
+        ctx.fillStyle=`rgb(${c.join(",")})`;
+        ctx.beginPath();
+        ctx.arc(this.x,this.y,r,0,Math.PI*2);
+        ctx.fill();
+        ctx.restore();
       }
-      ctx.drawImage(colorLayer, 0, 0);
-    }
-
-    requestAnimationFrame(animate);
-  }
-  animate();
-
-  function handleTap() {
-    if (stage === 0) {
-      popped = true;
-      fadeStart = performance.now();
-      bubbles.forEach(b => b.pop());
-      stage = 1;
-    } else {
-      createScene();
-      stage = 0;
     }
   }
-  canvas.addEventListener("pointerdown", handleTap);
+}
 
-  // 💾 저장 기능 (파일명에 날짜 포함)
-  const saveBtn = document.getElementById("saveBtn");
-  const shareBtn = document.getElementById("shareBtn");
-  const toast = document.getElementById("toast");
+let bubbles=[];
+let popped=false;
+let fadeStart=null;
+const colorLayer=document.createElement("canvas");
+const cctx=colorLayer.getContext("2d");
+colorLayer.width=width;
+colorLayer.height=height;
 
-  function showToast(msg) {
-    toast.textContent = msg;
-    toast.classList.add("show");
-    clearTimeout(toast.hideTimer);
-    toast.hideTimer = setTimeout(() => toast.classList.remove("show"), 2000);
+function createScene(){
+  bubbles=[];
+  const count=isMobile?15:25;
+  for(let i=0;i<count;i++)bubbles.push(new Bubble());
+  popped=false;
+  fadeStart=null;
+  cctx.clearRect(0,0,width,height);
+}
+createScene();
+
+function animate(){
+  ctx.fillStyle="rgba(255,255,255,0.08)";
+  ctx.fillRect(0,0,width,height);
+  if(!popped){
+    bubbles.forEach(b=>{b.move();b.draw(ctx);});
+  }else{
+    bubbles.forEach(b=>{b.updatePop();b.draw(ctx);});
+    const elapsed=(performance.now()-fadeStart)/1000;
+    if(elapsed<duration){
+      const colors=bubbles.map(b=>b.color);
+      const repeat=isMobile?5:10;
+      for(let i=0;i<repeat;i++){
+        const c=colors[Math.floor(Math.random()*colors.length)];
+        const r=rand(15,70);
+        const a=rand(0.06,0.13);
+        cctx.fillStyle=`rgba(${c[0]},${c[1]},${c[2]},${a})`;
+        cctx.beginPath();
+        cctx.arc(rand(0,width),rand(0,height),r,0,Math.PI*2);
+        cctx.fill();
+      }
+    }
+    ctx.drawImage(colorLayer,0,0);
   }
+  requestAnimationFrame(animate);
+}
+requestAnimationFrame(animate);
 
-  saveBtn.addEventListener("click", () => {
-    // 📅 현재 시각 기반 파일명 생성
-    const now = new Date();
-    const yyyy = now.getFullYear();
-    const mm = String(now.getMonth() + 1).padStart(2, "0");
-    const dd = String(now.getDate()).padStart(2, "0");
-    const hh = String(now.getHours()).padStart(2, "0");
-    const mi = String(now.getMinutes()).padStart(2, "0");
-    const ss = String(now.getSeconds()).padStart(2, "0");
-    const filename = `bubble_art_${yyyy}-${mm}-${dd}_${hh}-${mi}-${ss}.png`;
+// 🪄 첫 터치 안정화 처리: 첫 터치는 초기화만 담당 (터지지 않음)
+function handleTap(e){
+  e.preventDefault();
+  if(!initialized){
+    initialized=true;
+    console.log("첫 터치로 캔버스 활성화 완료 ✅");
+    return;
+  }
+  if(stage===0){
+    popped=true; fadeStart=performance.now();
+    bubbles.forEach(b=>b.pop());
+    stage=1;
+  }else{
+    createScene();
+    stage=0;
+  }
+}
+canvas.addEventListener("pointerdown",handleTap,{passive:false});
 
-    const dataURL = canvas.toDataURL("image/png");
-    const link = document.createElement("a");
-    link.download = filename;
-    link.href = dataURL;
-    link.click();
-    showToast(`💾 ${filename}로 저장되었습니다!`);
-  });
+// ---------------- 저장 / 공유 기능 ----------------
+const saveBtn=document.getElementById("saveBtn");
+const shareBtn=document.getElementById("shareBtn");
+const toast=document.getElementById("toast");
 
-  // 📤 공유 기능
-  shareBtn.addEventListener("click", async () => {
+function showToast(msg){
+  toast.textContent=msg;
+  toast.classList.add("show");
+  clearTimeout(toast.hideTimer);
+  toast.hideTimer=setTimeout(()=>toast.classList.remove("show"),2000);
+}
+
+// 💾 저장: 파일명에 날짜 추가
+saveBtn.addEventListener("click",()=>{
+  const now=new Date();
+  const yyyy=now.getFullYear();
+  const mm=String(now.getMonth()+1).padStart(2,"0");
+  const dd=String(now.getDate()).padStart(2,"0");
+  const hh=String(now.getHours()).padStart(2,"0");
+  const mi=String(now.getMinutes()).padStart(2,"0");
+  const ss=String(now.getSeconds()).padStart(2,"0");
+  const filename=`bubble_art_${yyyy}-${mm}-${dd}_${hh}-${mi}-${ss}.png`;
+  const dataURL=canvas.toDataURL("image/png");
+  const link=document.createElement("a");
+  link.download=filename;
+  link.href=dataURL;
+  link.click();
+  showToast(`💾 ${filename}로 저장되었습니다!`);
+});
+
+// 📤 공유하기 기능 복원
+shareBtn.addEventListener("click", async ()=>{
+  try {
     const dataURL = canvas.toDataURL("image/png");
     const blob = await (await fetch(dataURL)).blob();
     const file = new File([blob], "bubble_art.png", { type: "image/png" });
-
     if (navigator.canShare && navigator.canShare({ files: [file] })) {
-      try {
-        await navigator.share({
-          files: [file],
-          title: "비눗방울 예술 작품",
-          text: "🫧 내가 만든 비눗방울 예술이에요!"
-        });
-        showToast("📤 공유 완료!");
-      } catch {
-        showToast("❗ 공유 취소됨");
-      }
+      await navigator.share({
+        files: [file],
+        title: "비눗방울 예술 작품",
+        text: "🫧 내가 만든 비눗방울 예술이에요!",
+      });
+      showToast("📤 공유 완료!");
     } else {
-      showToast("⚠️ 공유 기능을 지원하지 않습니다");
+      showToast("⚠️ 이 브라우저는 공유 기능을 지원하지 않아요");
     }
-  });
+  } catch (err) {
+    console.error(err);
+    showToast("❗ 공유 중 오류가 발생했습니다");
+  }
+});
 </script>
 </body>
 </html>
